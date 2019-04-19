@@ -111,6 +111,17 @@ namespace NEL_NFT_test
             addrNFTlistMap.Put(addr, Helper.Serialize(addrNFTlist));
         }
 
+        public static BigInteger getTotalSupply() {
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+
+            var data = sysStateMap.Get("totalSupply");
+            if (data.Length > 0) {
+                return data.AsBigInteger();
+            }
+            return 0;
+
+        }
+
         public static bool mintToken(byte[] owner, string properties, string URI, string rwProperties)
         {
             if (!isOpen() && !Runtime.CheckWitness(superAdmin)) return false;
@@ -122,7 +133,7 @@ namespace NEL_NFT_test
             StorageMap tokenMap = Storage.CurrentContext.CreateMap("token");
             onLog("121", "go");
 
-            BigInteger totalSupply = sysStateMap.Get("totalSupply").AsBigInteger();
+            BigInteger totalSupply = getTotalSupply();
             onLog("125", "go");
             Token newToken = new Token();
             onLog("127", totalSupply);
