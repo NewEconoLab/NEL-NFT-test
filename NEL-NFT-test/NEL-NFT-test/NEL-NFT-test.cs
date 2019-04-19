@@ -1,7 +1,5 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
-using Neo.SmartContract.Framework.Services.System;
-using System;
 using System.ComponentModel;
 using System.Numerics;
 using Helper = Neo.SmartContract.Framework.Helper;
@@ -32,8 +30,8 @@ namespace NEL_NFT_test
         //- balanceOf(owner) : 返回地址拥有NFT的个数
         //- tokenIDsOfOwner(owner) :获取指定地址所有NFT tokenID
         //- transfer(to, token_id, extra_arg): 转移一个NFT（为测试superAdmin可任意执行此方法）
-        //- approve(token_receiver, token_id, revoke) : 授权第三方操作NFT所有权
-        //- transferFrom(spender, from, to, token_id): 在授权后执行NFT所有权转移
+        //- approve(token_receiver, token_id, revoke) : 授权第三方操作NFT所有权（为测试superAdmin可任意执行此方法）
+        //- transferFrom(spender, from, to, token_id): 在授权后执行NFT所有权转移（为测试superAdmin可任意执行此方法）
 
 
         //代币合约所有者操作(为测试开放所有地址和superAdmin，当isOpen=false时仅superAdmin)
@@ -52,12 +50,12 @@ namespace NEL_NFT_test
 
         //初始管理員
         static readonly byte[] superAdmin = Helper.ToScriptHash("AeaWf2v7MHGpzxH4TtBAu5kJRp5mRq2DQG");
-
-        //是否开放铸币
-        static string nameV = "NEL NFT Test";
-        static string symbolV = "NNT";
-        static string[] supportedStandardsV = { "NEP-10" };
-        static bool isOpenV = true;
+        
+        //不允许使用类变量
+        //static string nameV = "NEL NFT Test";
+        //static string symbolV = "NNT";
+        //static string supportedStandardsV = "[\"NEP-10\"]";
+        //static bool isOpenV = true;//是否开放铸币
 
         //事件
         //OnApprove = RegisterAction('approve', 'addr_from', 'addr_to', 'amount')
@@ -96,7 +94,7 @@ namespace NEL_NFT_test
         [DisplayName("NFTtransfer")]
         public static event deleNFTTransfer onNFTTransfer;
 
-        //设置变更个事件
+        //设置变更事件
         public delegate void deleNameModify(string newName);
         [DisplayName("nameModify")]
         public static event deleNameModify onNameModify;
@@ -114,29 +112,35 @@ namespace NEL_NFT_test
         public class Token
         {
             public Token() {
-                tokenID = 0;
+                token_id = 0;
                 owner = new byte[0];
                 approved = new byte[0];
                 properties = "";
-                URI = "";
+                uri = "";
                 rwProperties = "";
             }
 
-            public BigInteger tokenID { get; set; } //代币ID
+            public BigInteger token_id { get; set; } //代币ID
             public byte[] owner { get; set; } //代币所有权地址
             public byte[] approved { get; set; } //代币授权处置权地址
             public string properties { get; set; } //代币只读属性
-            public string URI { get; set; } //代币URI链接
+            public string uri { get; set; } //代币URI链接
             public string rwProperties { get; set; } //代币可修改属性
         }
 
         public static string name() {
-            return nameV;
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            var data = sysStateMap.Get("name");
+            if (data.Length > 0) return data.AsString();
+            return "NEL NFT Test";
         }
 
         public static string symbol()
         {
-            return symbolV;
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            var data = sysStateMap.Get("symbol");
+            if (data.Length > 0) return data.AsString();
+            return "NNT";
         }
 
         public static BigInteger decimals() {
@@ -144,16 +148,28 @@ namespace NEL_NFT_test
         }
 
         public static string[] supportedStandards() {
-            return supportedStandardsV;
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            var data = sysStateMap.Get("supportedStandards");
+            if (data.Length > 0) return Helper.Deserialize(data) as string[];
+            return new string[] { "NEP-10" };
         }
 
         public static bool isOpen() {
-            return isOpenV;
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            var data = sysStateMap.Get("isOpen");
+
+            if (data.Length > 0)
+            {
+                var isOpenStr = data.AsString();
+                if (isOpenStr == "1") return true;
+                else return false;
+            } 
+            return true;
         } 
 
         public static BigInteger totalSupply() {
-            StorageMap totalSupplyMap = Storage.CurrentContext.CreateMap("totalSupply");
-            return totalSupplyMap.Get("totalSupply").AsBigInteger();
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            return sysStateMap.Get("totalSupply").AsBigInteger();
         }
 
         public static Token getToken(BigInteger tokenID) {
@@ -168,9 +184,7 @@ namespace NEL_NFT_test
             }
             return new Token();
         }
-        public static Token token(BigInteger tokenID) {
-            return getToken(tokenID);
-        }
+
         public static byte[] allowance(BigInteger tokenID)
         {
             Token token = getToken(tokenID);
@@ -193,7 +207,7 @@ namespace NEL_NFT_test
         }
         public static string uri(BigInteger tokenID)
         {
-            return getToken(tokenID).URI;
+            return getToken(tokenID).uri;
         }
         public static string rwProperties(BigInteger tokenID)
         {
@@ -267,14 +281,15 @@ namespace NEL_NFT_test
             if (data.Length >0) {
                 Token token = Helper.Deserialize(data) as Token;
                 if (!Runtime.CheckWitness(token.owner) && !Runtime.CheckWitness(superAdmin)) return false;
+                var addrFrom = token.owner;
                 token.owner = addrTo;
 
                 tokenMap.Put(tokenID.AsByteArray(), Helper.Serialize(token));
-                addrNFTlistRemove(token.owner, tokenID);
+                addrNFTlistRemove(addrFrom, tokenID);
                 addrNFTlistAdd(addrTo, tokenID);
 
-                onTransfer(token.owner, addrTo, 1);
-                onNFTTransfer(token.owner, addrTo, tokenID);
+                onTransfer(addrFrom, addrTo, 1);
+                onNFTTransfer(addrFrom, addrTo, tokenID);
 
                 return true;
             }
@@ -321,15 +336,15 @@ namespace NEL_NFT_test
             {
                 Token token = Helper.Deserialize(data) as Token;
                 if (!Runtime.CheckWitness(token.approved) && !Runtime.CheckWitness(superAdmin)) return false;
-
+                var addrFrom = token.owner;
                 token.owner = addrTo;
 
                 tokenMap.Put(tokenID.AsByteArray(), Helper.Serialize(token));
-                addrNFTlistRemove(token.owner, tokenID);
+                addrNFTlistRemove(addrFrom, tokenID);
                 addrNFTlistAdd(addrTo, tokenID);
 
-                onTransfer(token.owner, addrTo, 1);
-                onNFTTransfer(token.owner, addrTo, tokenID);
+                onTransfer(addrFrom, addrTo, 1);
+                onNFTTransfer(addrFrom, addrTo, tokenID);
 
                 return true;
             }
@@ -338,27 +353,27 @@ namespace NEL_NFT_test
         }
 
         public static bool mintToken(byte[] owner,string properties,string URI,string rwProperties) {           
-            if (!isOpenV && !Runtime.CheckWitness(superAdmin)) return false;
-            if (!Runtime.CheckWitness(owner) && !Runtime.CheckWitness(superAdmin)) return false;
+            if (!isOpen() && !Runtime.CheckWitness(superAdmin)) return false;
+            if (!Runtime.CheckWitness(owner)) return false;
 
-            StorageMap totalSupplyMap = Storage.CurrentContext.CreateMap("totalSupply");
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
             StorageMap tokenMap = Storage.CurrentContext.CreateMap("token");
 
-            BigInteger totalSupply = totalSupplyMap.Get("totalSupply").AsBigInteger();
+            BigInteger totalSupply = sysStateMap.Get("totalSupply").AsBigInteger();
             Token newToken = new Token();
-            newToken.tokenID = totalSupply + 1;
+            newToken.token_id = totalSupply + 1;
             newToken.owner = owner;
             newToken.approved = new byte[0];
             newToken.properties = properties;
-            newToken.URI = URI;
+            newToken.uri = URI;
             newToken.rwProperties = rwProperties;
 
-            totalSupplyMap.Put("totalSupply", newToken.tokenID);
-            tokenMap.Put(newToken.tokenID.AsByteArray(), Helper.Serialize(newToken));
-            addrNFTlistAdd(owner, newToken.tokenID);
+            sysStateMap.Put("totalSupply", newToken.token_id);
+            tokenMap.Put(newToken.token_id.AsByteArray(), Helper.Serialize(newToken));
+            addrNFTlistAdd(owner, newToken.token_id);
 
             onMint(owner, 1);
-            onNFTMint(owner, newToken.tokenID, newToken);
+            onNFTMint(owner, newToken.token_id, newToken);
 
             return true;
         }
@@ -374,7 +389,7 @@ namespace NEL_NFT_test
             {
                 Token token = Helper.Deserialize(data) as Token;
                 token.properties = properties;
-                tokenMap.Put(token.tokenID.AsByteArray(), Helper.Serialize(token));
+                tokenMap.Put(token.token_id.AsByteArray(), Helper.Serialize(token));
 
                 onNFTModify(tokenID, "properties", properties);
 
@@ -384,7 +399,7 @@ namespace NEL_NFT_test
         }
 
         public static bool modifyURI(BigInteger tokenID, string URI) {
-            if (!isOpenV && !Runtime.CheckWitness(superAdmin)) return false;
+            if (!isOpen() && !Runtime.CheckWitness(superAdmin)) return false;
 
             StorageMap tokenMap = Storage.CurrentContext.CreateMap("token");
 
@@ -392,10 +407,10 @@ namespace NEL_NFT_test
             if(data.Length > 0) {
                 Token token = Helper.Deserialize(data) as Token;
                 if (!Runtime.CheckWitness(token.owner) && !Runtime.CheckWitness(superAdmin)) return false;
-                token.URI = URI;
-                tokenMap.Put(token.tokenID.AsByteArray(), Helper.Serialize(token));
+                token.uri = URI;
+                tokenMap.Put(token.token_id.AsByteArray(), Helper.Serialize(token));
 
-                onNFTModify(tokenID, "URI", URI);
+                onNFTModify(tokenID, "uri", URI);
 
                 return true;
             }
@@ -404,7 +419,7 @@ namespace NEL_NFT_test
 
         public static bool setRWProperties(BigInteger tokenID, string rwProperties)
         {
-            if (!isOpenV && !Runtime.CheckWitness(superAdmin)) return false;
+            if (!isOpen() && !Runtime.CheckWitness(superAdmin)) return false;
 
             StorageMap tokenMap = Storage.CurrentContext.CreateMap("token");
 
@@ -414,7 +429,7 @@ namespace NEL_NFT_test
                 Token token = Helper.Deserialize(data) as Token;
                 if (!Runtime.CheckWitness(token.owner) && !Runtime.CheckWitness(superAdmin)) return false;
                 token.rwProperties = rwProperties;
-                tokenMap.Put(token.tokenID.AsByteArray(), Helper.Serialize(token));
+                tokenMap.Put(token.token_id.AsByteArray(), Helper.Serialize(token));
 
                 onNFTModify(tokenID, "rwProperties", rwProperties);
 
@@ -423,39 +438,48 @@ namespace NEL_NFT_test
             return false;
         }
 
-        public static bool setName(string name) {
+        public static bool setName(string newName) {
             if (!Runtime.CheckWitness(superAdmin)) return false;
 
-            nameV = name;
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            sysStateMap.Put("name", newName);
 
-            onNameModify(name);
+            onNameModify(newName);
             return true;
         }
 
-        public static bool setSymbol(string symbol)
+        public static bool setSymbol(string newSymbol)
         {
             if (!Runtime.CheckWitness(superAdmin)) return false;
 
-            symbolV = symbol;
-            onSymbolModify(symbol);
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            sysStateMap.Put("symbol", newSymbol);
+
+            onSymbolModify(newSymbol);
             return true;
         }
 
-        public static bool setSupportedStandards(string[] supportedStandards)
+        public static bool setSupportedStandards(string[] newSupportedStandards)
         {
             if (!Runtime.CheckWitness(superAdmin)) return false;
 
-            supportedStandardsV = supportedStandards;
-            onSupportedStandardsModify(supportedStandards);
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            sysStateMap.Put("supportedStandards",Helper.Serialize(newSupportedStandards));
+
+            onSupportedStandardsModify(newSupportedStandards);
             return true;
         }
 
-        public static bool setIsOpen(bool isOpen)
+        public static bool setIsOpen(bool newIsOpen)
         {
             if (!Runtime.CheckWitness(superAdmin)) return false;
 
-            isOpenV = isOpen;
-            onIsOpenChange(isOpen);
+            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
+            var isOpenStr = "0";
+            if (newIsOpen) isOpenStr = "1";
+            sysStateMap.Put("isOpen", isOpenStr);
+
+            onIsOpenChange(newIsOpen);
             return true;
         }
 
@@ -523,7 +547,7 @@ namespace NEL_NFT_test
                 if (operation == "token")
                 {
                     if (args.Length != 1) return false;
-                    return token((BigInteger)args[0]);
+                    return getToken((BigInteger)args[0]);
                 }
 
                 //所有权类
