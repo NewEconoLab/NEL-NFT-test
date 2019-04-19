@@ -119,13 +119,14 @@ namespace NEL_NFT_test
                 uri = "";
                 rwProperties = "";
             }
+            //不能使用get set
 
-            public BigInteger token_id { get; set; } //代币ID
-            public byte[] owner { get; set; } //代币所有权地址
-            public byte[] approved { get; set; } //代币授权处置权地址
-            public string properties { get; set; } //代币只读属性
-            public string uri { get; set; } //代币URI链接
-            public string rwProperties { get; set; } //代币可修改属性
+            public BigInteger token_id;// { get; set; } //代币ID
+            public byte[] owner;//  { get; set; } //代币所有权地址
+            public byte[] approved;//  { get; set; } //代币授权处置权地址
+            public string properties;//  { get; set; } //代币只读属性
+            public string uri;//  { get; set; } //代币URI链接
+            public string rwProperties;//  { get; set; } //代币可修改属性
         }
 
         public static string name() {

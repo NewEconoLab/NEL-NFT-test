@@ -36,12 +36,14 @@ namespace NEL_NFT_test
                 rwProperties = "";
             }
 
-            public BigInteger token_id { get; set; } //代币ID
-            public byte[] owner { get; set; } //代币所有权地址
-            public byte[] approved { get; set; } //代币授权处置权地址
-            public string properties { get; set; } //代币只读属性
-            public string uri { get; set; } //代币URI链接
-            public string rwProperties { get; set; } //代币可修改属性
+            //不能使用get set
+
+            public BigInteger token_id;// { get; set; } //代币ID
+            public byte[] owner;// { get; set; } //代币所有权地址
+            public byte[] approved;// { get; set; } //代币授权处置权地址
+            public string properties;// { get; set; } //代币只读属性
+            public string uri;// { get; set; } //代币URI链接
+            public string rwProperties;// { get; set; } //代币可修改属性
         }
 
         public static bool isOpen()
@@ -111,17 +113,6 @@ namespace NEL_NFT_test
             addrNFTlistMap.Put(addr, Helper.Serialize(addrNFTlist));
         }
 
-        public static BigInteger getTotalSupply() {
-            StorageMap sysStateMap = Storage.CurrentContext.CreateMap("sysState");
-
-            var data = sysStateMap.Get("totalSupply");
-            if (data.Length > 0) {
-                return data.AsBigInteger();
-            }
-            return 0;
-
-        }
-
         public static bool mintToken(byte[] owner, string properties, string URI, string rwProperties)
         {
             if (!isOpen() && !Runtime.CheckWitness(superAdmin)) return false;
@@ -133,10 +124,10 @@ namespace NEL_NFT_test
             StorageMap tokenMap = Storage.CurrentContext.CreateMap("token");
             onLog("121", "go");
 
-            BigInteger totalSupply = getTotalSupply();
+            BigInteger totalSupply = sysStateMap.Get("totalSupply").AsBigInteger();
             onLog("125", "go");
             Token newToken = new Token();
-            onLog("127", totalSupply);
+            onLog("127", "go");
             newToken.token_id = totalSupply + 1;
             onLog("129", "go");
             newToken.owner = owner;
