@@ -46,6 +46,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="mapTest.cs" />
+    <Compile Include="mintTokenTest.cs" />
     <Compile Include="NEL-NFT-test.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
